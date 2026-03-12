@@ -73,7 +73,7 @@ func (cli *CLI) Run() error {
 			return errors.New("Error: requires <number>")
 		}
 		cli.number = args[0]
-		config.SaveFile(cli.number, "number")
+		config.SaveNumber(cli.number)
 	case *help:
 		printHelp()
 	}
