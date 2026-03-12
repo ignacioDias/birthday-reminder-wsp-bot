@@ -1,29 +1,17 @@
 package main
 
 import (
-	"birthdayreminder/internal/wsp"
-	"fmt"
+	"birthdayreminder/cmd/cli"
 	"os"
-	"os/signal"
-	"syscall"
-	"time"
 )
 
 func main() {
-	bot := wsp.NewBot()
-	for !bot.IsConnected() {
-		time.Sleep(500 * time.Millisecond)
+	cli, err := cli.NewCLI(os.Args[1:])
+	if err != nil {
+		panic(err)
 	}
-	fmt.Println("Enviando mensaje...")
-	if err := wsp.SendMessage(bot, "num", "Hola, soy un humano!"); err != nil {
-		fmt.Println("Error:", err)
-	} else {
-		fmt.Println("Mensaje enviado!")
+	if err := cli.Run(); err != nil {
+		panic(err)
 	}
-
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	<-c
-
-	bot.Disconnect()
+	cli.KillBot()
 }

@@ -15,8 +15,6 @@ import (
 	"go.mau.fi/whatsmeow"
 )
 
-var FILE string = "./save.json"
-
 type CLI struct {
 	args      []string
 	client    *whatsmeow.Client
@@ -24,13 +22,21 @@ type CLI struct {
 	number    string
 }
 
-func NewCLI(args []string) *CLI {
+func NewCLI(args []string) (*CLI, error) {
+	number, err := config.LoadNumber()
+	if err != nil {
+		return nil, err
+	}
+	birthdays, err := config.LoadBirthdays()
+	if err != nil {
+		return nil, err
+	}
 	return &CLI{
 		args:      args,
 		client:    nil,
-		birthdays: config.LoadBirthdays(),
-		number:    config.LoadNumber(),
-	}
+		birthdays: birthdays,
+		number:    number,
+	}, nil
 }
 
 func (cli *CLI) Run() error {
@@ -50,18 +56,20 @@ func (cli *CLI) Run() error {
 		if len(args) < 2 {
 			return errors.New("Error: requires <name> and <DD/MM>")
 		}
-		cli.addBirthday(args[0], args[1])
+		if err := cli.addBirthday(args[0], args[1]); err != nil {
+			return err
+		}
 		return config.SaveFile(cli.birthdays, "birthdays")
 	case *list:
 		cli.listBirthdays()
 	case *remove:
-		if len(cli.args) < 1 {
+		if len(args) < 1 {
 			return errors.New("Error: requires <name>")
 		}
 		cli.removeBirthdays(args[0])
 		return config.SaveFile(cli.birthdays, "birthdays")
 	case *num:
-		if len(cli.args) < 1 {
+		if len(args) < 1 {
 			return errors.New("Error: requires <number>")
 		}
 		cli.number = args[0]
@@ -100,6 +108,8 @@ func (cli *CLI) addBirthday(name string, date string) error {
 func printHelp() {
 	fmt.Println("Birthday Reminder CLI")
 	fmt.Println("\nUsage:")
+	fmt.Println("\nOn first run, execute without commands to log in. Then you can add it as a startup program.")
+	fmt.Println("\n Then, you add the number to send the reminders (I suggest to use your own number).")
 	fmt.Println("  birthdayreminder [flags] [arguments]")
 	fmt.Println("\nFlags:")
 	fmt.Println("  --add <name> <DD/MM>    Add a birthday")
@@ -129,7 +139,11 @@ func (cli *CLI) removeBirthdays(name string) {
 }
 
 func (cli *CLI) checkBirthdays() error {
-	cli.client = wsp.NewBot()
+	var err error
+	cli.client, err = wsp.NewBot()
+	if err != nil {
+		return err
+	}
 	for _, elem := range cli.birthdays {
 		if elem.Month == time.Now().Month() && elem.Day == time.Now().Day() {
 			if err := wsp.SendMessage(cli.client, cli.number, generateMessage(elem.Name)); err != nil {
@@ -142,4 +156,10 @@ func (cli *CLI) checkBirthdays() error {
 
 func generateMessage(name string) string {
 	return "Hoy es cumpleaños de " + name
+}
+
+func (cli *CLI) KillBot() {
+	if cli.client != nil {
+		cli.client.Disconnect()
+	}
 }
